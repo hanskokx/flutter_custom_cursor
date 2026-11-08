@@ -1,0 +1,21 @@
+name: custom_cursor_example
+description: Demonstrates the custom_cursor package with a grid of previewable cursors.
+publish_to: "none"
+
+environment:
+  sdk: ^3.13.0
+
+dependencies:
+  custom_cursor:
+    path: ../
+  desktop_drop: ^0.8.3
+  flutter:
+    sdk: flutter
+
+dev_dependencies:
+  arcane_analysis: ^1.0.5
+
+flutter:
+  uses-material-design: true
+  assets:
+    - assets/cursors/
