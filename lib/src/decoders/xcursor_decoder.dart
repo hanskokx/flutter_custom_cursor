@@ -4,6 +4,7 @@ import "dart:ui";
 
 import "../cursor_asset.dart";
 import "../cursor_decoder.dart";
+import "../method_channels.dart";
 
 /// Decodes Linux Xcursor (`.cursor`) themes.
 ///
@@ -13,8 +14,22 @@ import "../cursor_decoder.dart";
 /// ARGB32 pixels (or an embedded PNG). Variants are stored per nominal size
 /// (24/30/36/48). When more than one image shares a size, the cursor is
 /// animated and each frame has its own delay.
+///
+/// An Xcursor file usually holds the same cursor at several sizes. The decoder
+/// uses the variant closest to [size] or, when [size] is null, closest to the
+/// size of the platform's own cursor, so a themed cursor shows at the size of
+/// the cursor it replaces.
 final class LinuxXcursorDecoder implements CursorDecoder {
-  const LinuxXcursorDecoder();
+  const LinuxXcursorDecoder({this.size});
+
+  /// The nominal cursor size, in pixels, to pick a variant for.
+  ///
+  /// When null, the platform's cursor size is used, or [defaultSize] if the
+  /// platform cannot report one.
+  final int? size;
+
+  /// The Xcursor convention for a normal-sized cursor.
+  static const int defaultSize = 24;
 
   // "Xcur" represented as a Big-Endian 32-bit integer constant
   static const int _kXcur = 0x58637572;
@@ -48,40 +63,61 @@ final class LinuxXcursorDecoder implements CursorDecoder {
       bySize.putIfAbsent(image.subtype, () => []).add(image);
     }
 
-    final Iterable<List<_XImage>> animatedGroups = bySize.values.where(
-      (group) => group.length > 1,
-    );
+    final int target = size ?? await _systemCursorSize();
+    final List<_XImage> group = _closestGroup(bySize, target);
 
-    // Static: The largest single-frame image is used for non-animated cursors.
-    if (animatedGroups.isEmpty) {
-      final _XImage largest = bySize.values
-          .reduce((a, b) => a.first.subtype >= b.first.subtype ? a : b)
-          .first;
-
-      final (Image image, Offset hotspot) = await _decodeImage(largest);
+    if (group.length == 1) {
+      final (Image image, Offset hotspot) = await _decodeImage(group.first);
       return StaticCursor(image, hotspot: hotspot);
     }
 
-    // Animated: pick the largest animated size group.
-    final List<_XImage> largestGroup = animatedGroups.reduce(
-      (a, b) => a.first.subtype >= b.first.subtype ? a : b,
-    );
-
     // Decode all animation frames concurrently
     final List<(Image, Offset)> decodedFrames = await Future.wait(
-      largestGroup.map((entry) => _decodeImage(entry)),
+      group.map(_decodeImage),
     );
 
     final List<CursorFrame> frames = [
-      for (int i = 0; i < largestGroup.length; i++)
+      for (int i = 0; i < group.length; i++)
         CursorFrame(
           decodedFrames[i].$1,
           hotspot: decodedFrames[i].$2,
-          duration: Duration(microseconds: largestGroup[i].delay * 1000),
+          duration: Duration(milliseconds: group[i].delay),
         ),
     ];
 
     return AnimatedCursor(frames: frames);
+  }
+
+  /// Picks the group in [bySize] whose nominal size is closest to [target],
+  /// preferring the larger size on a tie (downscaling looks better than
+  /// upscaling).
+  static List<_XImage> _closestGroup(
+    Map<int, List<_XImage>> bySize,
+    int target,
+  ) {
+    return bySize.entries.reduce((best, candidate) {
+      final int bestDistance = (best.key - target).abs();
+      final int candidateDistance = (candidate.key - target).abs();
+      if (candidateDistance < bestDistance) return candidate;
+      if (candidateDistance == bestDistance && candidate.key > best.key) {
+        return candidate;
+      }
+      return best;
+    }).value;
+  }
+
+  /// Asks the platform how large its cursor is, falling back to
+  /// [defaultSize] when the platform cannot say.
+  static Future<int> _systemCursorSize() async {
+    try {
+      final int? size = await PackageChannels.mouseCursor.invokeMethod<int>(
+        "systemCursorSize",
+      );
+      if (size != null && size > 0) return size;
+    } on Object {
+      // No plugin (tests, unsupported platform) or no answer: use the default.
+    }
+    return defaultSize;
   }
 
   /// Decodes a single image chunk into an [Image] plus its hotspot.

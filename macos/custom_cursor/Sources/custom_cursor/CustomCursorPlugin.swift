@@ -53,6 +53,10 @@ public class CustomCursorPlugin: NSObject, FlutterPlugin {
         activeCursor?.set()
       }
       result(nil)
+    case "systemCursorSize":
+      // The arrow's longest side matches the Xcursor nominal size convention.
+      let size = NSCursor.arrow.image.size
+      result(Int(max(size.width, size.height).rounded()))
     case "clearCursor":
       // Stop re-asserting the custom cursor without changing the visible one,
       // so the cursor Flutter activates next is not overwritten.

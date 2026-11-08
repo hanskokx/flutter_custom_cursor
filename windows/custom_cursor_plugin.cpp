@@ -250,6 +250,10 @@ namespace custom_cursor
         result->Error("bad_args", "activateCustomCursor");
       }
     }
+    else if (method == "systemCursorSize")
+    {
+      result->Success(EncodableValue(GetSystemMetrics(SM_CYCURSOR)));
+    }
     else if (method == "clearCursor")
     {
       // Stop forcing the custom cursor without changing the visible one, so a

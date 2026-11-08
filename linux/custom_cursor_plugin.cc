@@ -146,6 +146,16 @@ static void custom_cursor_plugin_handle_method_call(CustomCursorPlugin *self, Fl
     fl_method_call_respond(method_call, FL_METHOD_RESPONSE(response), nullptr);
     g_object_unref(response);
   }
+  else if (strcmp(method, "systemCursorSize") == 0)
+  {
+    GdkDisplay *display = gdk_display_get_default();
+    const guint size =
+        display != nullptr ? gdk_display_get_default_cursor_size(display) : 0;
+    g_autoptr(FlValue) value = fl_value_new_int(static_cast<int64_t>(size));
+    fl_method_call_respond(
+        method_call, FL_METHOD_RESPONSE(fl_method_success_response_new(value)),
+        nullptr);
+  }
   else if (strcmp(method, "clearCursor") == 0)
   {
     // GTK keeps no sticky custom cursor: Flutter's next cursor wins.
