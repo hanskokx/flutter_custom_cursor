@@ -34,6 +34,14 @@ abstract class CustomMouseCursor extends MouseCursor {
     String? package,
   }) = _AssetCustomMouseCursor;
 
+  /// A cursor decoded from the [bytes] of a cursor file, in any format
+  /// [decodeCursorAsset] supports.
+  ///
+  /// Equality is by the identity of [bytes], so keep the same list around to
+  /// avoid re-decoding and re-registering.
+  const factory CustomMouseCursor.memory(Uint8List bytes) =
+      _MemoryCustomMouseCursor;
+
   /// A cursor from a raw [ui.Image] with an optional [hotspot].
   const factory CustomMouseCursor.fromImage(
     ui.Image image, {
@@ -116,6 +124,18 @@ class _AssetCustomMouseCursor extends CustomMouseCursor {
 
     return decodeCursorAsset(bytes);
   }
+}
+
+class _MemoryCustomMouseCursor extends CustomMouseCursor {
+  const _MemoryCustomMouseCursor(this.bytes);
+
+  final Uint8List bytes;
+
+  @override
+  Object get sourceKey => _Identity(bytes);
+
+  @override
+  Future<DecodedCursor> load() => decodeCursorAsset(bytes);
 }
 
 class _ImageCustomMouseCursor extends CustomMouseCursor {

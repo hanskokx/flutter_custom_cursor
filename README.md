@@ -46,6 +46,12 @@ MouseRegion(cursor: move, child: child);
 MouseRegion(cursor: SystemMouseCursors.click, child: child);
 ```
 
+To use the bytes of a cursor file you already have in memory (downloaded, read from disk, or dropped onto the window):
+
+```dart
+final cursor = CustomMouseCursor.memory(bytes);
+```
+
 To use data you have already decoded, wrap the `DecodedCursor`:
 
 ```dart
@@ -59,6 +65,6 @@ To create a cursor directly from a raw `ui.Image` with an optional `hotspot`:
 final cursor = CustomMouseCursor.fromImage(myImage, hotspot: const Offset(8, 8));
 ```
 
-Equal cursors (same asset path, package, and bundle, or the same decoded `DecodedCursor` instance) share a single native activation. Animated cursors play their frames automatically.
+Equal cursors (same asset path, package, and bundle, the same `Uint8List` instance, or the same decoded `DecodedCursor` instance) share a single native activation. Animated cursors play their frames automatically.
 
 Cursors use the `"custom_cursor"` method channel.
