@@ -5,11 +5,15 @@ import "dart:ui";
 import "../cursor_asset.dart";
 import "../cursor_decoder.dart";
 
-/// [CursorDecoder] implementation for Windows `.cur` resources.
+/// [CursorDecoder] implementation for Windows `.cur` and `.ico` resources.
 final class CurDecoder implements CursorDecoder {
   const CurDecoder();
 
-  /// A `.cur` begins with a zero reserved word and a little-endian type of 2.
+  static const int _typeIcon = 1;
+  static const int _typeCursor = 2;
+
+  /// A `.cur` begins with a zero reserved word and a little-endian type of 2
+  /// (or 1 for an `.ico`).
   @override
   bool detects(Uint8List bytes) {
     if (bytes.length < 6) {
@@ -19,9 +23,9 @@ final class CurDecoder implements CursorDecoder {
     final ByteData view = ByteData.sublistView(bytes);
 
     final bool startsWithZero = view.getUint16(0, Endian.little) == 0;
-    final bool isCursorType = view.getUint16(2, Endian.little) == 2;
+    final int type = view.getUint16(2, Endian.little);
 
-    return startsWithZero && isCursorType;
+    return startsWithZero && (type == _typeCursor || type == _typeIcon);
   }
 
   @override
@@ -34,7 +38,8 @@ final class CurDecoder implements CursorDecoder {
     return StaticCursor(image, hotspot: hotspot);
   }
 
-  /// Decodes the first raw image and hotspot from cursor resource [bytes].
+  /// Decodes the first raw image and hotspot from cursor (or icon) resource
+  /// [bytes].
   ///
   /// Throws a [FormatException] on malformed input.
   static Future<(Image, Offset)> decodeFrame(Uint8List bytes) async {
@@ -48,7 +53,8 @@ final class CurDecoder implements CursorDecoder {
       throw const FormatException("bad cursor reserved field");
     }
 
-    if (view.getUint16(2, Endian.little) != 2) {
+    final int type = view.getUint16(2, Endian.little);
+    if (type != _typeCursor && type != _typeIcon) {
       throw const FormatException("not a cursor file");
     }
 
@@ -59,10 +65,14 @@ final class CurDecoder implements CursorDecoder {
 
     const int entry = 6;
 
-    final Offset hotspot = Offset(
-      view.getUint16(entry + 4, Endian.little).toDouble(),
-      view.getUint16(entry + 6, Endian.little).toDouble(),
-    );
+    // In an icon these fields are the color planes and bit count, not a
+    // hotspot.
+    final Offset hotspot = type == _typeCursor
+        ? Offset(
+            view.getUint16(entry + 4, Endian.little).toDouble(),
+            view.getUint16(entry + 6, Endian.little).toDouble(),
+          )
+        : Offset.zero;
 
     final int size = view.getUint32(entry + 8, Endian.little);
     final int offset = view.getUint32(entry + 12, Endian.little);
