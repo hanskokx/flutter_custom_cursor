@@ -221,7 +221,7 @@ void custom_cursor_plugin_register_with_registrar(FlPluginRegistrar *registrar)
                             "custom_cursor",
                             FL_METHOD_CODEC(codec));
   fl_method_channel_set_method_call_handler(
-      channel, method_call_cb, g_object_ref(plugin), g_object_unref(plugin));
+      channel, method_call_cb, g_object_ref(plugin), g_object_unref);
 
   g_object_unref(plugin);
 }
